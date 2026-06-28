@@ -1814,14 +1814,21 @@ setInterval(updateClock, 1000);
 
 // ── SINU muestras (placeholder hasta recibir datos) ──
 // Actualizar este valor cuando lleguen los datos completos de SINU
-const SINU_SAMPLES = '~42';
-document.getElementById('sinu-samples').textContent = SINU_SAMPLES;
-const kpiSinu = document.getElementById('kpi-sinu-samples');
-if (kpiSinu) kpiSinu.textContent = SINU_SAMPLES;
+// SINU samples — filled by Firebase
 
-// Build overview on load
-built.overview = true;
-buildOverview();
+// Build overview on load — wait for Firebase data
+// (buildOverview called after Firebase loads)
+
+// ── Expose to window for Firebase module ──
+window._DATA      = DATA;
+window._built     = built;
+window._showTab   = showTab;
+window._rebuildActive = function() {
+  const active = document.querySelector('.section.active');
+  const tabId  = active ? active.id.replace('sec-','') : 'overview';
+  Object.keys(built).forEach(k => built[k] = false);
+  showTab(tabId);
+};
 
 // ── renderMonthlyTable — reusable, reacts to filter ──
 function renderMonthlyTable(meses) {
@@ -2258,11 +2265,12 @@ try {
     if (si) si.textContent = DATA.SINU.kpis.total_ffa || '—';
     if (sk) sk.textContent = DATA.SINU.kpis.total_ffa || '—';
 
-    // Rebuild active tab charts
-    const active = document.querySelector('.section.active');
-    const tabId  = active ? active.id.replace('sec-','') : 'overview';
-    Object.keys(built).forEach(k => built[k] = false);
-    showTab(tabId);
+    // Rebuild active tab
+    if (window._rebuildActive) window._rebuildActive();
+    else {
+      Object.keys(built).forEach(k => built[k] = false);
+      showTab('overview');
+    }
 
     console.log('✅ Firebase OK', {
       AGC: DATA.AGC.kpis,
