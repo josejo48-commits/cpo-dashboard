@@ -2005,6 +2005,7 @@ function mkLineChart(id, labels, datasets, yMin, yMax, cen) {
 }
 
 function aplicarFiltro() {
+window.aplicarFiltro = aplicarFiltro;
   const isDefault = FLT.mes==='Todos' && FLT.empresa==='Todas' && FLT.ind==='Todos';
   const panel=document.getElementById('comp-filter-result');
   const badge=document.getElementById('flt-badge');
@@ -2342,6 +2343,10 @@ try {
       // Rebuild all tabs with daily data
       Object.keys(built).forEach(k => built[k] = false);
       if (window._preloadAll) window._preloadAll();
+      // Re-apply filter if active
+      if (window.aplicarFiltro && (FLT.mes!=='Todos' || FLT.empresa!=='Todas' || FLT.ind!=='Todos')) {
+        setTimeout(() => aplicarFiltro(), 500);
+      }
     });
   }
 
