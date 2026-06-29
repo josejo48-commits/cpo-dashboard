@@ -2270,6 +2270,7 @@ function applyDailyRecords(snap) {
   });
 
   if (snap.exists()) {
+    let count = 0;
     snap.forEach(child => {
       const r   = child.val();
       const co  = r.extractora;
@@ -2278,7 +2279,16 @@ function applyDailyRecords(snap) {
       const dd = { d: r.fecha.slice(5), v: val };
       if (r.indicador === 'FFA')       DATA[co].ffa_daily.push(dd);
       else if (r.indicador === 'DOBI') DATA[co].dobi_daily.push(dd);
+      count++;
     });
+    console.log('✅ Daily records loaded:', count, {
+      AGC_FFA: DATA.AGC.ffa_daily.length,
+      AGC_DOBI: DATA.AGC.dobi_daily.length,
+      MLB_FFA: DATA.MLB.ffa_daily.length,
+      SINU_FFA: DATA.SINU.ffa_daily.length,
+    });
+  } else {
+    console.warn('⚠️ cpo_registros is empty or null');
   }
 
   ['AGC','MLB','SINU'].forEach(co => {
