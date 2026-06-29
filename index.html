@@ -1877,7 +1877,7 @@ function renderMonthlyTable(meses) {
 
   const dobiAvg = (co, m) => {
     const mn_key = MES_N ? MES_N[m] : {Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06'}[m];
-    const vals = DATA[co].dobi_daily.filter(p=>p.d.includes('-'+mn_key+'-')).map(p=>p.v);
+    const vals = DATA[co].dobi_daily.filter(p=>p.d.startsWith(mn_key+'-')).map(p=>p.v);
     return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
   };
 
@@ -2032,8 +2032,8 @@ window.aplicarFiltro = aplicarFiltro;
   const fd = {ffa:{}, dobi:{}};
   let totalFFA=0, totalDOBI=0;
   cos.forEach(co=>{
-    fd.ffa[co]  = DATA[co].ffa_daily.filter(p=>!mesNum||p.d.includes('-'+mesNum+'-'));
-    fd.dobi[co] = DATA[co].dobi_daily.filter(p=>!mesNum||p.d.includes('-'+mesNum+'-'));
+    fd.ffa[co]  = DATA[co].ffa_daily.filter(p=>!mesNum||p.d.startsWith(mesNum+'-'));
+    fd.dobi[co] = DATA[co].dobi_daily.filter(p=>!mesNum||p.d.startsWith(mesNum+'-'));
     totalFFA  += fd.ffa[co].length;
     totalDOBI += fd.dobi[co].length;
   });
