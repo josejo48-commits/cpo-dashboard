@@ -1827,7 +1827,46 @@ window._rebuildActive = function() {
   const active = document.querySelector('.section.active');
   const tabId  = active ? active.id.replace('sec-','') : 'overview';
   Object.keys(built).forEach(k => built[k] = false);
-  showTab(tabId);
+  showTab2(tabId);
+};
+
+// showTab2 — version without needing event object
+function showTab2(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const sec = document.getElementById('sec-'+tab);
+  if (sec) sec.classList.add('active');
+  const btn = document.querySelector(`.tab-btn[onclick*="'${tab}'"]`);
+  if (btn) btn.classList.add('active');
+  if (!built[tab]) {
+    built[tab] = true;
+    if (tab==='overview')    buildOverview();
+    else if (tab==='agc')    buildAGC();
+    else if (tab==='mlb')    buildMLB();
+    else if (tab==='sinu')   buildSINU();
+    else if (tab==='comparativo') buildComparativo();
+  }
+}
+window.showTab2 = showTab2;
+
+// ── Precargar todas las pestañas en segundo plano ──
+window._preloadAll = function() {
+  const tabs = ['overview','agc','mlb','sinu','comparativo'];
+  let i = 0;
+  function next() {
+    if (i >= tabs.length) return;
+    const tab = tabs[i++];
+    if (!built[tab]) {
+      built[tab] = true;
+      if (tab==='overview')    buildOverview();
+      else if (tab==='agc')    buildAGC();
+      else if (tab==='mlb')    buildMLB();
+      else if (tab==='sinu')   buildSINU();
+      else if (tab==='comparativo') buildComparativo();
+    }
+    setTimeout(next, 300); // small delay between each to not block UI
+  }
+  next();
 };
 
 // ── renderMonthlyTable — reusable, reacts to filter ──
@@ -2256,11 +2295,12 @@ try {
   onValue(ref(db, 'cpo_resumen'), (snap) => {
     if (snap.exists()) {
       applyResumen(snap.val());
-      // Render Gerencia immediately with summary data
+      // Render Gerencia immediately
       built.overview = false;
-      if (window._rebuildActive) window._rebuildActive();
+      showTab2('overview');
+      // Preload all other tabs in background
+      setTimeout(() => { if (window._preloadAll) window._preloadAll(); }, 500);
     } else {
-      // No summary yet — fall back to full load
       loadAllRecords();
     }
   });
@@ -2299,8 +2339,9 @@ try {
         if (sk) sk.textContent = DATA.SINU.kpis.total_ffa || '—';
       }
 
-      // Rebuild current tab with daily data
-      if (window._rebuildActive) window._rebuildActive();
+      // Rebuild all tabs with daily data
+      Object.keys(built).forEach(k => built[k] = false);
+      if (window._preloadAll) window._preloadAll();
     });
   }
 
