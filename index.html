@@ -1435,6 +1435,17 @@ function limitAnnotation(val, label, color) {
 
 // ==================== BUILD CHARTS ====================
 
+
+// ── Format MM-DD to Mon-DD ──
+const MES_SHORT = {'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
+function fmtDate(d) {
+  if (!d) return d;
+  const parts = d.split('-');
+  if (parts.length === 2) return (MES_SHORT[parts[0]] || parts[0]) + '-' + parts[1];
+  if (parts.length === 3) return (MES_SHORT[parts[1]] || parts[1]) + '-' + parts[2];
+  return d;
+}
+
 function buildOverview() {
   // Monthly FFA Comparison
   const mLabels = MONTHS;
@@ -1648,7 +1659,7 @@ function buildAGC() {
   const dobi = aggregateByDate(DATA.AGC.dobi_daily);
 
   new Chart('chartAGCFFADaily', cfgLine(
-    daily.map(d=>d.d.slice(5)),
+    daily.map(d=>fmtDate(d.d)),
     [
       { label: 'AGC %FFA', data: daily.map(d=>d.v), borderColor: '#4f46e5', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5 },
       { label: 'Lím. Sup. 5.0', data: daily.map(()=>5.0), borderColor: 'rgba(220,38,38,0.7)', borderDash:[6,4], borderWidth:2, pointRadius:0, fill:false }
@@ -1656,7 +1667,7 @@ function buildAGC() {
   ));
 
   new Chart('chartAGCDOBIDaily', cfgLine(
-    dobi.map(d=>d.d.slice(5)),
+    dobi.map(d=>fmtDate(d.d)),
     [
       { label: 'AGC %DOBI', data: dobi.map(d=>d.v), borderColor: '#4f46e5', backgroundColor: 'rgba(99,102,241,0.08)', fill:true, tension:0.4, borderWidth:2.5, pointRadius:0, pointHoverRadius:5 },
       { label: 'Lím. Sup. 3.5', data: dobi.map(()=>3.5), borderColor: 'rgba(220,38,38,0.7)', borderDash:[6,4], borderWidth:2, pointRadius:0, fill:false }
@@ -1671,7 +1682,7 @@ function buildMLB() {
   const dobi = aggregateByDate(DATA.MLB.dobi_daily);
 
   new Chart('chartMLBFFADaily', cfgLine(
-    daily.map(d=>d.d.slice(5)),
+    daily.map(d=>fmtDate(d.d)),
     [
       { label: 'MLB %FFA', data: daily.map(d=>d.v), borderColor:'#5b21b6', backgroundColor:'rgba(91,33,182,0.09)', fill:true, tension:0.4, borderWidth:2.5, pointRadius:0, pointHoverRadius:5 },
       { label: 'Central 3.3', data: daily.map(()=>3.3), borderColor:'#d97706', borderDash:[6,4], borderWidth:2, pointRadius:0, fill:false },
@@ -1681,7 +1692,7 @@ function buildMLB() {
   ));
 
   new Chart('chartMLBDOBIDaily', cfgLine(
-    dobi.map(d=>d.d.slice(5)),
+    dobi.map(d=>fmtDate(d.d)),
     [
       { label: 'MLB %DOBI', data: dobi.map(d=>d.v), borderColor:'#5b21b6', backgroundColor:'rgba(91,33,182,0.09)', fill:true, tension:0.4, borderWidth:2.5, pointRadius:0, pointHoverRadius:5 },
       { label: 'Central 3.0', data: dobi.map(()=>3.0), borderColor:'#d97706', borderDash:[6,4], borderWidth:2, pointRadius:0, fill:false },
@@ -1698,7 +1709,7 @@ function buildSINU() {
   const dobi  = aggregateByDate(DATA.SINU.dobi_daily);
 
   new Chart('chartSINUFFADaily', cfgLine(
-    daily.map(d=>d.d.slice(5)),
+    daily.map(d=>fmtDate(d.d)),
     [
       { label: 'SINU %FFA', data: daily.map(d=>d.v), borderColor:'#059669', backgroundColor:'rgba(16,185,129,0.09)', fill:true, tension:0.4, borderWidth:2.5, pointRadius:0, pointHoverRadius:5 },
       { label: 'Lím. Sup. 5.0', data: daily.map(()=>5.0), borderColor:'rgba(220,38,38,0.7)', borderDash:[6,4], borderWidth:2, pointRadius:0, fill:false }
@@ -1706,7 +1717,7 @@ function buildSINU() {
   ));
 
   new Chart('chartSINUDOBIDaily', cfgLine(
-    dobi.map(d=>d.d.slice(5)),
+    dobi.map(d=>fmtDate(d.d)),
     [
       { label: 'SINU %DOBI', data: dobi.map(d=>d.v), borderColor:'#059669', backgroundColor:'rgba(16,185,129,0.09)', fill:true, tension:0.4, borderWidth:2.5, pointRadius:0, pointHoverRadius:5 },
       { label: 'Lím. Sup. 3.5', data: dobi.map(()=>3.5), borderColor:'rgba(220,38,38,0.7)', borderDash:[6,4], borderWidth:2, pointRadius:0, fill:false }
@@ -2109,8 +2120,8 @@ window.aplicarFiltro = aplicarFiltro;
   // ── Build common date labels ──
   const datesAll = new Set();
   cos.forEach(co=>{
-    fd.ffa[co].forEach(p=>datesAll.add(p.d.slice(5)));
-    fd.dobi[co].forEach(p=>datesAll.add(p.d.slice(5)));
+    fd.ffa[co].forEach(p=>datesAll.add(fmtDate(p.d)));
+    fd.dobi[co].forEach(p=>datesAll.add(fmtDate(p.d)));
   });
   const dates = [...datesAll].sort();
   const mesLabel = FLT.mes!=='Todos' ? FLT.mes+' 2026' : 'Ene–Jun 2026';
@@ -2148,7 +2159,7 @@ window.aplicarFiltro = aplicarFiltro;
       cos.forEach(co=>{
         const pts = fd.ffa[co];
         if(!pts.length) return;
-        const labels = pts.map(p=>p.d.slice(5));
+        const labels = pts.map(p=>fmtDate(p.d));
         const vals   = pts.map(p=>p.v);
         const yMin   = parseFloat(Math.max(1.4, Math.min(...vals)-0.3).toFixed(1));
         const yMax   = parseFloat(Math.min(5.5, Math.max(...vals)+0.5).toFixed(1));
@@ -2197,7 +2208,7 @@ window.aplicarFiltro = aplicarFiltro;
       cos.forEach(co=>{
         const pts = fd.dobi[co];
         if(!pts.length) return;
-        const labels = pts.map(p=>p.d.slice(5));
+        const labels = pts.map(p=>fmtDate(p.d));
         const vals   = pts.map(p=>p.v);
         const yMin   = parseFloat(Math.max(1.8, Math.min(...vals)-0.2).toFixed(1));
         const yMax   = parseFloat(Math.min(4.0, Math.max(...vals)+0.3).toFixed(1));
