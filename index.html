@@ -2183,10 +2183,10 @@ function aplicarFiltro() {
 }
 
 </script>
-<!-- ══ FIREBASE — Carga datos en tiempo real ══ -->
+<!-- ══ FIREBASE — Carga en dos fases ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyATY5Y_L2AJh8mcNaVz8mvqJwHyj-sYRYU",
@@ -2200,91 +2200,116 @@ const firebaseConfig = {
 
 const MES_NAMES = {'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
 
+function setFbStatus(ok) {
+  const dot = document.getElementById('fb-status-dot');
+  const txt = document.getElementById('fb-status-txt');
+  if (dot) { dot.style.background = ok ? '#10b981' : '#f59e0b'; dot.style.animation = ok ? 'pulse 2s infinite' : 'none'; }
+  if (txt) txt.textContent = ok ? 'Firebase conectado' : 'Sin conexión';
+}
+
+function applyResumen(resumen) {
+  ['AGC','MLB','SINU'].forEach(co => {
+    if (!resumen[co]) return;
+    const r = resumen[co];
+    DATA[co].kpis   = r;
+    DATA[co].monthly = r.monthly || {};
+  });
+
+  // Update header counts
+  const si = document.getElementById('sinu-samples');
+  const sk = document.getElementById('kpi-sinu-samples');
+  const sinuN = DATA.SINU.kpis.total_ffa || '—';
+  if (si) si.textContent = sinuN;
+  if (sk) sk.textContent = sinuN;
+}
+
+function applyDailyRecords(snap) {
+  ['AGC','MLB','SINU'].forEach(co => {
+    DATA[co].ffa_daily  = [];
+    DATA[co].dobi_daily = [];
+  });
+
+  if (snap.exists()) {
+    snap.forEach(child => {
+      const r   = child.val();
+      const co  = r.extractora;
+      const val = parseFloat(r.valor);
+      if (!DATA[co] || !r.fecha || isNaN(val)) return;
+      const dd = { d: r.fecha.slice(5), v: val };
+      if (r.indicador === 'FFA')       DATA[co].ffa_daily.push(dd);
+      else if (r.indicador === 'DOBI') DATA[co].dobi_daily.push(dd);
+    });
+  }
+
+  ['AGC','MLB','SINU'].forEach(co => {
+    DATA[co].ffa_daily.sort((a,b)=>a.d.localeCompare(b.d));
+    DATA[co].dobi_daily.sort((a,b)=>a.d.localeCompare(b.d));
+  });
+}
+
 try {
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
+  setFbStatus(true);
 
-  const dot = document.getElementById('fb-status-dot');
-  const txt = document.getElementById('fb-status-txt');
-  if (dot) { dot.style.background='#10b981'; dot.style.animation='pulse 2s infinite'; }
-  if (txt) txt.textContent = 'Firebase conectado';
-
-  onValue(ref(db, 'cpo_registros'), (snap) => {
-
-    // Reset DATA
-    ['AGC','MLB','SINU'].forEach(co => {
-      DATA[co] = { kpis:{}, monthly:{}, ffa_daily:[], dobi_daily:[] };
-    });
-
+  // ── FASE 1: Resumen (instantáneo) ──
+  onValue(ref(db, 'cpo_resumen'), (snap) => {
     if (snap.exists()) {
-      snap.forEach(child => {
-        const r   = child.val();
-        const co  = r.extractora;
-        const ind = r.indicador;
-        const val = parseFloat(r.valor);
-        if (!DATA[co] || !r.fecha || isNaN(val)) return;
-        const dd  = { d: r.fecha.slice(5), v: val };
-        if (ind === 'FFA')  DATA[co].ffa_daily.push(dd);
-        else if (ind === 'DOBI') DATA[co].dobi_daily.push(dd);
-      });
+      applyResumen(snap.val());
+      // Render Gerencia immediately with summary data
+      built.overview = false;
+      if (window._rebuildActive) window._rebuildActive();
+    } else {
+      // No summary yet — fall back to full load
+      loadAllRecords();
     }
-
-    // Sort + compute monthly + KPIs
-    ['AGC','MLB','SINU'].forEach(co => {
-      DATA[co].ffa_daily.sort((a,b)=>a.d.localeCompare(b.d));
-      DATA[co].dobi_daily.sort((a,b)=>a.d.localeCompare(b.d));
-
-      const monthlyFFA = {};
-      DATA[co].ffa_daily.forEach(p => {
-        const m = MES_NAMES[p.d.slice(0,2)]; if (!m) return;
-        if (!monthlyFFA[m]) monthlyFFA[m] = [];
-        monthlyFFA[m].push(p.v);
-      });
-      Object.keys(monthlyFFA).forEach(m => {
-        const v = monthlyFFA[m];
-        DATA[co].monthly[m] = parseFloat((v.reduce((a,b)=>a+b,0)/v.length).toFixed(3));
-      });
-
-      const fv = DATA[co].ffa_daily.map(p=>p.v);
-      const dv = DATA[co].dobi_daily.map(p=>p.v);
-      DATA[co].kpis = {
-        ffa_avg:   fv.length ? parseFloat((fv.reduce((a,b)=>a+b,0)/fv.length).toFixed(3)) : null,
-        ffa_max:   fv.length ? parseFloat(Math.max(...fv).toFixed(3)) : null,
-        ffa_min:   fv.length ? parseFloat(Math.min(...fv).toFixed(3)) : null,
-        dobi_avg:  dv.length ? parseFloat((dv.reduce((a,b)=>a+b,0)/dv.length).toFixed(3)) : null,
-        dobi_max:  dv.length ? parseFloat(Math.max(...dv).toFixed(3)) : null,
-        dobi_min:  dv.length ? parseFloat(Math.min(...dv).toFixed(3)) : null,
-        total_ffa:  fv.length,
-        total_dobi: dv.length,
-      };
-    });
-
-    // Update header counters
-    const si = document.getElementById('sinu-samples');
-    const sk = document.getElementById('kpi-sinu-samples');
-    if (si) si.textContent = DATA.SINU.kpis.total_ffa || '—';
-    if (sk) sk.textContent = DATA.SINU.kpis.total_ffa || '—';
-
-    // Rebuild active tab
-    if (window._rebuildActive) window._rebuildActive();
-    else {
-      Object.keys(built).forEach(k => built[k] = false);
-      showTab('overview');
-    }
-
-    console.log('✅ Firebase OK', {
-      AGC: DATA.AGC.kpis,
-      MLB: DATA.MLB.kpis,
-      SINU: DATA.SINU.kpis
-    });
   });
+
+  // ── FASE 2: Lecturas diarias (en segundo plano) ──
+  function loadAllRecords() {
+    onValue(ref(db, 'cpo_registros'), (snap) => {
+      applyDailyRecords(snap);
+
+      // If no summary exists, compute from records
+      if (!DATA.AGC.kpis.ffa_avg) {
+        ['AGC','MLB','SINU'].forEach(co => {
+          const fv = DATA[co].ffa_daily.map(p=>p.v);
+          const dv = DATA[co].dobi_daily.map(p=>p.v);
+          const monthly = {};
+          DATA[co].ffa_daily.forEach(p => {
+            const m = MES_NAMES[p.d.slice(0,2)]; if (!m) return;
+            if (!monthly[m]) monthly[m] = [];
+            monthly[m].push(p.v);
+          });
+          Object.keys(monthly).forEach(m => {
+            DATA[co].monthly[m] = parseFloat((monthly[m].reduce((a,b)=>a+b,0)/monthly[m].length).toFixed(3));
+          });
+          DATA[co].kpis = {
+            ffa_avg:   fv.length ? parseFloat((fv.reduce((a,b)=>a+b,0)/fv.length).toFixed(3)) : null,
+            ffa_max:   fv.length ? parseFloat(Math.max(...fv).toFixed(3)) : null,
+            ffa_min:   fv.length ? parseFloat(Math.min(...fv).toFixed(3)) : null,
+            dobi_avg:  dv.length ? parseFloat((dv.reduce((a,b)=>a+b,0)/dv.length).toFixed(3)) : null,
+            total_ffa:  fv.length,
+            total_dobi: dv.length,
+          };
+        });
+        const si = document.getElementById('sinu-samples');
+        const sk = document.getElementById('kpi-sinu-samples');
+        if (si) si.textContent = DATA.SINU.kpis.total_ffa || '—';
+        if (sk) sk.textContent = DATA.SINU.kpis.total_ffa || '—';
+      }
+
+      // Rebuild current tab with daily data
+      if (window._rebuildActive) window._rebuildActive();
+    });
+  }
+
+  // Always load daily records in background after summary
+  setTimeout(() => loadAllRecords(), 100);
 
 } catch(e) {
   console.warn('Firebase error:', e.message);
-  const dot = document.getElementById('fb-status-dot');
-  const txt = document.getElementById('fb-status-txt');
-  if (dot) dot.style.background = '#f59e0b';
-  if (txt) txt.textContent = 'Sin conexión';
+  setFbStatus(false);
 }
 </script>
 </body>
